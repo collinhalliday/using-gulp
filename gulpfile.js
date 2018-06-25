@@ -1,5 +1,6 @@
 'use strict';
 
+//Node modules
 const gulp = require('gulp'),
     concat = require('gulp-concat'),
     uglify = require('gulp-uglify'),
@@ -12,16 +13,20 @@ const gulp = require('gulp'),
     connect = require('gulp-connect'),
     htmlreplace = require('gulp-html-replace');
 
+//Source and distribution file paths
 const options = {
   src: 'src',
   dist: 'dist'
 };
 
+//Copies the contents of the src/icons folder and places them into dist/icons.
 gulp.task('copy', function() {
   gulp.src(options.src + '/icons/**')
   .pipe(gulp.dest(options.dist + '/icons'))
 });
 
+//Concatenates the js files, minifies the resulting file, and creates a source map,
+//placing all output files in the dist/scripts directory.
 gulp.task("scripts", function() {
     gulp.src([
         options.src + '/js/jquery-3.3.1.js',
@@ -37,29 +42,36 @@ gulp.task("scripts", function() {
     .pipe(gulp.dest(options.dist + '/scripts'));
 });
 
+//Compiles the scss files into css, minifies the resulting file, and creates a source map,
+//placing all output files in the dist/styles directory. Refreshes the page when changes
+//are made to the scss/sass source files.
 gulp.task("styles", function() {
-  return gulp.src(options.src + '/sass/global.scss')
+  gulp.src(options.src + '/sass/global.scss')
     .pipe(maps.init())
     .pipe(sass())
     .pipe(gulp.dest(options.dist + '/styles'))
     .pipe(csso())
     .pipe(rename('all.min.css'))
     .pipe(maps.write('./'))
-    .pipe(gulp.dest(options.dist + '/styles'));
+    .pipe(gulp.dest(options.dist + '/styles'))
+    .pipe(connect.reload());
 });
 
+//Compresses the images in the src/images directory, placing the compressed version in the
+//dist/content directory.
 gulp.task("images", function() {
   gulp.src(options.src + '/images/*')
         .pipe(imagemin())
         .pipe(gulp.dest(options.dist + '/content'))
 });
 
-//Deletes files created by gulp
+//Deletes files created by gulp tasks, all of which are in the dist directory.
 gulp.task("clean", function() {
-  //del([options.src + '/css', options.dist + '/**', '!' + options.dist, options.src + '/js/global*.js**']);
   del([options.dist + '/**', '!' + options.dist]);
 });
 
+//Changes the src path for the css link, script tag and img tags in the html doc,
+//placing the modified document in the dist directory.
 gulp.task("html", function() {
   gulp.src(options.src + '/index.html')
     .pipe(htmlreplace({
@@ -85,10 +97,13 @@ gulp.task("html", function() {
     .pipe(gulp.dest('dist'));
 });
 
+//First calls the clean task. When clean is finished, calls the tasks discussed above.
 gulp.task("build", ['clean'], function() {
-  return gulp.start(['scripts', 'styles', 'images']);
+  return gulp.start(['scripts', 'styles', 'images', 'copy']);
 });
 
+//First calls the html task above. When html is finished, starts a local server to serve the
+//project from the dist folder.
 gulp.task("connect", ['html'], function() {
   return connect.server({
     root: './' + options.dist,
@@ -96,6 +111,19 @@ gulp.task("connect", ['html'], function() {
   })
 });
 
+//Watches for any changes to the scss/sass source documents. Upon any change followed by a save,
+//this task runs the styles task, automatically updating the page with the changes and refreshing
+//the page.
+gulp.task("watch", function() {
+  gulp.watch([
+    options.src + '/sass/*.scss',
+    options.src + '/sass/circle/*.sass',
+    options.src + '/sass/circle/components/*.sass',
+    options.src + '/sass/circle/core/*.sass'
+  ], ['styles']);
+});
+
+//Runs the build task, then connects to the server and watches for any changes to the scss/sass files.
 gulp.task("default", ['build'], function() {
-  return gulp.start('connect');
+  return gulp.start(['connect', 'watch']);
 });
